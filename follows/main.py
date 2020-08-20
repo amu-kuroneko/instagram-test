@@ -57,7 +57,7 @@ class Instagram():
         _elements.first.click()
 
         # checking to move page
-        if not self._wait_to_move_page('https://www.instagram.com/', 5):
+        if not self._wait_to_set_cookie('sessionid', 5):
             print('[ERROR] Failed to login', file=stderr)
             return False
 
@@ -66,6 +66,10 @@ class Instagram():
                 print('[FATAL] Failed to save login info', file=stderr)
                 return False
         self._update_cookies()
+        if self.browser.url.startswith('https://www.instagram.com/challenge'):
+            if not self._send_security_code():
+                print('[ERROR] Failed to authenticate by security code', file=stderr)
+                return False
         return True
 
     def get_users(self, keyword):
@@ -77,6 +81,7 @@ class Instagram():
             'query': keyword,
             'rank_token': random(),
             'include_reel': 'false'}
+        print('Search User: %s' % keyword)
         _result = requests.get(
             'https://www.instagram.com/web/search/topsearch/',
             params=_params,
@@ -84,12 +89,18 @@ class Instagram():
         if _result.status_code != 200:
             print('Failed to get users.', file=stderr)
             return None
-        return json.loads(_result.text)
+        try:
+            return json.loads(_result.text)
+        except json.decoder.JSONDecodeError as e:
+            print(_result.text)
+            self.screenshot()
+            raise e
 
     def follow_user(self, username):
         """
         指定した User を Follow する
         """
+        print('[INFO][%s] Try to follow user is %s' % (datetime.now().strftime('%Y%m%d%H%M%S'), username))
         _url = 'https://www.instagram.com/%s/' % username
         self.browser.visit(_url)
         sleep(2)
@@ -100,7 +111,12 @@ class Instagram():
         if len(_elements) == 0:
             print('[FATAL] Follow button does not exist in %s' % _url, file=stderr)
             return False
+        _text = _elements.first.outer_html
         _elements.first.click()
+        sleep(1)
+        _elements = self.browser.find_by_css('main header button')
+        if _text == _elements.first.outer_html:
+            print('Failed to follow user: %s' % username)
         return True
 
     def _save_login_info(self):
@@ -112,11 +128,40 @@ class Instagram():
         _elements.first.click()
         return self._wait_to_move_page(_url, 5)
 
+    def _send_security_code(self):
+        _elements = self.browser.find_by_css('button')
+        if len(_elements) == 0:
+            print('[FATAL] To send security code button does not exist', file=stderr)
+            return False
+        _elements.last.click()
+        sleep(2)
+        _elements = self.browser.find_by_css('input[name=security_code]')
+        if len(_elements) == 0:
+            print('[FATAL] Input form for security code does not exist', file=stderr)
+            return False
+        _security_code = input('Input Serucity Code > ')
+        _elements.first.fill(_security_code)
+        _elements = self.browser.find_by_tag('button')
+        if len(_elements) == 0:
+            print('[FATAL] To submit security code button code does not exist', file=stderr)
+            return False
+        _url = self.browser.url
+        print('[DEBUG] challenge page: %s' % _url)
+        _elements.first.click()
+        return self._wait_to_move_page(_url, 5)
+
     def _wait_to_move_page(self, url, trials):
-        _i = 0
         for _ in range(trials):
             sleep(1)
             if self.browser.url != url:
+                return True
+        return False
+
+    def _wait_to_set_cookie(self, cookie_name, trials):
+        for _ in range(trials):
+            sleep(1)
+            print(self.browser.driver.get_cookie(cookie_name))
+            if self.browser.driver.get_cookie(cookie_name) is not None:
                 return True
         return False
 
@@ -200,7 +245,7 @@ def _main():
                 _instagram.screenshot()
                 return 1
             _count += 1
-            sleep(2)
+            sleep(3)
     return 0
 
 sys.exit(_main())
