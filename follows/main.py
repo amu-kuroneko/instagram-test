@@ -241,24 +241,28 @@ def _main():
 
     _user_set = set()
     _count = 0
-    for _i in  range(10000):
-        _values = _instagram.get_users(_make_search_word(_i))
-        if _values is None:
-            return 1
-        for _user_value in _values['users']:
-            _user = _user_value['user']
-            _username = _user['username']
-            if _username in _user_set:
-                continue
-            _user_set.add(_username)
-            if _user['is_private'] or _user['friendship_status']['following']:
-                continue
-            if not _instagram.follow_user(_username):
-                _log('error', 'Failed to follow when trying %d times' % _count)
-                _instagram.screenshot()
+    try:
+        for _i in  range(10000):
+            _values = _instagram.get_users(_make_search_word(_i))
+            if _values is None:
                 return 1
-            _count += 1
-            sleep(8)
+            for _user_value in _values['users']:
+                _user = _user_value['user']
+                _username = _user['username']
+                if _username in _user_set:
+                    continue
+                _user_set.add(_username)
+                if _user['is_private'] or _user['friendship_status']['following']:
+                    continue
+                if not _instagram.follow_user(_username):
+                    _log('error', 'Failed to follow when trying %d times' % _count)
+                    _instagram.screenshot()
+                    return 1
+                _count += 1
+                sleep(8)
+    except BaseException as exception:
+        _instagram.screenshot()
+        raise exception
     return 0
 
 sys.exit(_main())
