@@ -3,7 +3,7 @@ chardet==3.0.4
 cssselect==1.1.0
 Cython==0.29.21
 idna==2.10
-lxml==4.5.2
+lxml==4.6.2
 requests==2.24.0
 selenium==3.141.0
 six==1.15.0
